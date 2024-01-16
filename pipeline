@@ -1,0 +1,38 @@
+pipeline {
+    agent { 
+        label 'docker'
+    }
+
+    parameters {
+        string(name: 'WEBSITE_VERSION', description: 'Enter the website version')
+        string(name: 'BUCKET_NAME', description: 'Enter the bucket name')
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                git branch: 'main', credentialsId: 'f914d8e5-3337-4fb3-be17-56d261e63c09', url: 'https://github.com/nickgia002/test_jenkins.git'            } 
+        }
+        stage('Build') {
+            steps {
+                script {
+                    // Perform any build steps if needed
+                    echo "Building the website..."
+                }
+            }
+        }
+        stage('Deploy to S3') {
+            steps {
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: "jenkins",
+                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                ]]) {
+                    sh 'aws s3 sync . s3://${BUCKET_NAME}'
+                    // sh 'cat /home/ec2-user/work/workspace/demo-tos3/index.html'
+                }
+            }
+        } 
+    }
+}
