@@ -1,38 +1,118 @@
 pipeline {
     agent { 
-        label 'docker'
+        label 'linux'
     }
 
     parameters {
-        string(name: 'WEBSITE_VERSION', description: 'Enter the website version')
-        string(name: 'BUCKET_NAME', description: 'Enter the bucket name')
+        // string(name: 'BUCKET_NAME', description: 'Enter the bucket name')
+        string(name: 'EC2_INSTANCE_IP', description: 'Enter the bucket name')
+        // string(name: 'DOCKER_IMAGE_NAME', description: 'Enter the docker image name')
+        // string(name: 'DOCKER_CONTAINER_NAME', description: 'Enter the bucket name')
+        string(name: 'EMAIL_RECIPIENT', description: 'Email address to receive the notification')
     }
 
     stages {
         stage('Checkout') {
             steps {
-                git branch: 'main', credentialsId: 'f914d8e5-3337-4fb3-be17-56d261e63c09', url: 'https://github.com/nickgia002/test_jenkins.git'            } 
+                git branch: 'main', credentialsId: '95598b0f-5f34-4404-bbed-657578cc4fc3', url: 'https://github.com/luuthanhtu020296/jenkins-template.git'            } 
         }
         stage('Build') {
             steps {
                 script {
                     // Perform any build steps if needed
-                    echo "Building the website..."
+                    sh "ls -l -a"
                 }
             }
         }
-        stage('Deploy to S3') {
+        // stage('Deploy to S3') {
+        //     steps {
+        //         withCredentials([[
+        //             $class: 'AmazonWebServicesCredentialsBinding',
+        //             credentialsId: "jenkins",
+        //             accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+        //             secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+        //         ]]) {
+        //             sh 'aws s3 sync . s3://${BUCKET_NAME}'
+        //             // sh 'cat /home/ec2-user/work/workspace/demo-tos3/index.html'
+        //         }
+        //     }
+        // }
+        
+        stage('Install Docker') {
             steps {
-                withCredentials([[
-                    $class: 'AmazonWebServicesCredentialsBinding',
-                    credentialsId: "jenkins",
-                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-                ]]) {
-                    sh 'aws s3 sync . s3://${BUCKET_NAME}'
-                    // sh 'cat /home/ec2-user/work/workspace/demo-tos3/index.html'
+                script {
+                    // SSH into EC2 instance and run the Docker container
+                    sshagent(['deploy']) {
+                        sh """
+                            scp linux_install_guilde_docker/install-docker-amazon.sh ec2-user@${EC2_INSTANCE_IP}:/home/ec2-user/deploy/
+                        """
+                    }
+                }
+                script {
+                    sshagent(['deploy']) {
+                        sh """ssh ec2-user@${EC2_INSTANCE_IP} '. /home/ec2-user/deploy/install-docker-amazon.sh'"""
+                        }
                 }
             }
-        } 
-    }
+        }
+        stage('Deploy Web Application with Docker Compose') {
+            steps {
+                script {
+                    // Copy Docker Compose file to the EC2 instance
+                    sshagent(['deploy']) {
+                        sh """scp docker-compose.yml ec2-user@${EC2_INSTANCE_IP}:/home/ec2-user/deploy/"""
+                    }
+                    // Copy nginx config file to the EC2 instance
+                    sshagent(['deploy']) {
+                        sh """scp nginx.conf ec2-user@${EC2_INSTANCE_IP}:/home/ec2-user/deploy"""
+                    } 
+                    // Copy html file to the EC2 instance
+                    sshagent(['deploy']) {
+                        sh """scp index.html ec2-user@${EC2_INSTANCE_IP}:/home/ec2-user/deploy"""
+                    }                     
+                    // Deploy the web application using Docker Compose on the EC2 instance
+                    sshagent(['deploy']) {
+                        sh """ssh ec2-user@${EC2_INSTANCE_IP} 'cd /home/ec2-user/deploy/ && docker compose -f docker-compose.yml up -d'"""
+                    }
+                }
+            }
+        }
+        stage('Slack Notify') {
+            steps {
+                slackSend channel: 'demo', message: 'test'
+            }
+        }        
+    }   
+    post {
+         always {  
+            echo 'This will always run'  
+         }  
+         success {  
+            script {
+                // Send email on success build
+                emailext subject: 'Jenkins Build Success',
+                          body: 'The Jenkins build Success',
+                          to: params.EMAIL_RECIPIENT,
+                          replyTo: '',
+                          mimeType: 'text/html'
+            }
+        }  
+         failure {  
+            script {
+                // Send email on failed build
+                emailext subject: 'Jenkins Build Failure',
+                          body: 'The Jenkins build failed. Please check the Jenkins console for details.',
+                          to: params.EMAIL_RECIPIENT,
+                          replyTo: '',
+                          mimeType: 'text/html'
+            }
+         }  
+         unstable {  
+             echo 'This will run only if the run was marked as unstable'  
+         }  
+         changed {  
+             echo 'This will run only if the state of the Pipeline has changed'  
+             echo 'For example, if the Pipeline was previously failing but is now successful'  
+         } 
+    }      
 }
