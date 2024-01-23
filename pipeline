@@ -1,11 +1,13 @@
 pipeline {
     agent { 
-        label 'linux'
+        label 'agent'
     }
+
+    // agent any
 
     parameters {
         // string(name: 'BUCKET_NAME', description: 'Enter the bucket name')
-        string(name: 'EC2_INSTANCE_IP', description: 'Enter the bucket name')
+        string(name: 'EC2_INSTANCE_IP', description: 'Enter your instances ip')
         // string(name: 'DOCKER_IMAGE_NAME', description: 'Enter the docker image name')
         // string(name: 'DOCKER_CONTAINER_NAME', description: 'Enter the bucket name')
         string(name: 'EMAIL_RECIPIENT', description: 'Email address to receive the notification')
@@ -14,7 +16,7 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                git branch: 'main', credentialsId: '95598b0f-5f34-4404-bbed-657578cc4fc3', url: 'https://github.com/luuthanhtu020296/jenkins-template.git'            } 
+                git branch: 'main', credentialsId: '95598b0f-5f34-4404-bbed-657578cc4fc3', url: 'https://github.com/nickgia002/test_jenkins.git' } 
         }
         stage('Build') {
             steps {
@@ -42,14 +44,14 @@ pipeline {
             steps {
                 script {
                     // SSH into EC2 instance and run the Docker container
-                    sshagent(['deploy']) {
+                    sshagent(credentials: ['deploy'], ignoreMissing: true) {
                         sh """
                             scp linux_install_guilde_docker/install-docker-amazon.sh ec2-user@${EC2_INSTANCE_IP}:/home/ec2-user/deploy/
                         """
                     }
                 }
                 script {
-                    sshagent(['deploy']) {
+                    sshagent(credentials: ['deploy'], ignoreMissing: true) {
                         sh """ssh ec2-user@${EC2_INSTANCE_IP} '. /home/ec2-user/deploy/install-docker-amazon.sh'"""
                         }
                 }
@@ -59,19 +61,19 @@ pipeline {
             steps {
                 script {
                     // Copy Docker Compose file to the EC2 instance
-                    sshagent(['deploy']) {
+                    sshagent(credentials: ['deploy'], ignoreMissing: true) {
                         sh """scp docker-compose.yml ec2-user@${EC2_INSTANCE_IP}:/home/ec2-user/deploy/"""
                     }
                     // Copy nginx config file to the EC2 instance
-                    sshagent(['deploy']) {
-                        sh """scp nginx.conf ec2-user@${EC2_INSTANCE_IP}:/home/ec2-user/deploy"""
+                    sshagent(credentials: ['deploy'], ignoreMissing: true) {
+                        sh """scp nginx.conf ec2-user@${EC2_INSTANCE_IP}:/home/ec2-user/deploy/"""
                     } 
                     // Copy html file to the EC2 instance
-                    sshagent(['deploy']) {
-                        sh """scp index.html ec2-user@${EC2_INSTANCE_IP}:/home/ec2-user/deploy"""
+                    sshagent(credentials: ['deploy'], ignoreMissing: true) {
+                        sh """scp index.html ec2-user@${EC2_INSTANCE_IP}:/home/ec2-user/deploy/"""
                     }                     
                     // Deploy the web application using Docker Compose on the EC2 instance
-                    sshagent(['deploy']) {
+                    sshagent(credentials: ['deploy'], ignoreMissing: true) {
                         sh """ssh ec2-user@${EC2_INSTANCE_IP} 'cd /home/ec2-user/deploy/ && docker compose -f docker-compose.yml up -d'"""
                     }
                 }
