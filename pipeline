@@ -35,7 +35,7 @@ pipeline {
         //             secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
         //         ]]) {
         //             sh 'aws s3 sync . s3://${BUCKET_NAME}'
-        //             // sh 'cat /home/ec2-user/work/workspace/demo-tos3/index.html'
+        //             // sh 'cat /home/ubuntu/work/workspace/demo-tos3/index.html'
         //         }
         //     }
         // }
@@ -46,13 +46,13 @@ pipeline {
                     // SSH into EC2 instance and run the Docker container
                     sshagent(credentials: ['deploy'], ignoreMissing: true) {
                         sh """
-                            scp linux_install_guilde_docker/install-docker-amazon.sh ec2-user@${EC2_INSTANCE_IP}:/home/ec2-user/deploy/
+                            scp linux_install_guilde_docker/install-docker-amazon.sh ubuntu@${EC2_INSTANCE_IP}:/home/ubuntu/deploy/
                         """
                     }
                 }
                 script {
                     sshagent(credentials: ['deploy'], ignoreMissing: true) {
-                        sh """ssh ec2-user@${EC2_INSTANCE_IP} '. /home/ec2-user/deploy/install-docker-amazon.sh'"""
+                        sh """ssh ubuntu@${EC2_INSTANCE_IP} '. /home/ubuntu/deploy/install-docker-amazon.sh'"""
                         }
                 }
             }
@@ -62,19 +62,19 @@ pipeline {
                 script {
                     // Copy Docker Compose file to the EC2 instance
                     sshagent(credentials: ['deploy'], ignoreMissing: true) {
-                        sh """scp docker-compose.yml ec2-user@${EC2_INSTANCE_IP}:/home/ec2-user/deploy/"""
+                        sh """scp docker-compose.yml ubuntu@${EC2_INSTANCE_IP}:/home/ubuntu/deploy/"""
                     }
                     // Copy nginx config file to the EC2 instance
                     sshagent(credentials: ['deploy'], ignoreMissing: true) {
-                        sh """scp nginx.conf ec2-user@${EC2_INSTANCE_IP}:/home/ec2-user/deploy/"""
+                        sh """scp nginx.conf ubuntu@${EC2_INSTANCE_IP}:/home/ubuntu/deploy/"""
                     } 
                     // Copy html file to the EC2 instance
                     sshagent(credentials: ['deploy'], ignoreMissing: true) {
-                        sh """scp index.html ec2-user@${EC2_INSTANCE_IP}:/home/ec2-user/deploy/"""
+                        sh """scp index.html ubuntu@${EC2_INSTANCE_IP}:/home/ubuntu/deploy/"""
                     }                     
                     // Deploy the web application using Docker Compose on the EC2 instance
                     sshagent(credentials: ['deploy'], ignoreMissing: true) {
-                        sh """ssh ec2-user@${EC2_INSTANCE_IP} 'cd /home/ec2-user/deploy/ && docker compose -f docker-compose.yml up -d'"""
+                        sh """ssh ubuntu@${EC2_INSTANCE_IP} 'cd /home/ubuntu/deploy/ && docker compose -f docker-compose.yml up -d'"""
                     }
                 }
             }
